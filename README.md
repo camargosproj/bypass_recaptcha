@@ -7,7 +7,7 @@
 - To use this script you need to have playwright installed.
 
 ```bash
-pip install playwright
+pip install playwright requests
 ```
 ```bash
 playwright install # This will install all the browsers, get more info at https://playwright.dev/python/

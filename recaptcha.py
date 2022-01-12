@@ -18,10 +18,10 @@ async def solve(page):
         while True:
             frames = await recaptcha_click(page)
             if await check_green_mark(frames):
-                print_log(" - Recaptcha checkbox marcado!")
+                print_log(" - Recaptcha checkbox já foi solucionado!")
                 break
-            else:
-                frames = page.frames       
+            else:       
+                frames = page.frames   
                 for frame in frames:            
                     if frame.url.find('api2/bframe') != -1 or await frame.is_visible("#recaptcha-audio-button"):
                         print_log(" - Frame de imagens encontrado!")
@@ -48,7 +48,9 @@ async def solve(page):
                             else:
                                 raise Exception(error)
                     else:
-                        print_log(" - Frame não encontrado!")
+                        print_log(" - Procurando frame na página!")
+                print_log(" - Recaptcha não foi encontrado nesta página!")
+                return False
     except Exception as error:
         print_error("Recaptcha retornou um erro!",'\033[31m',error)
     finally:
@@ -56,10 +58,9 @@ async def solve(page):
         return page
 
 
-# Find  google frames and click on the checkbox
+# Find the google frame and click on the checkbox
 async def recaptcha_click(page):
     await page.wait_for_load_state()
-    print_log(" - Procurando Recaptcha checkbox...")
     frames = page.frames
     for frame in frames:
         if await frame.is_visible(".recaptcha-checkbox-border"):
@@ -67,18 +68,19 @@ async def recaptcha_click(page):
             await frame.click(".recaptcha-checkbox-border", delay=500)
             return frames
         else:
-            print_log(" - Recaptcha checkbox não encontrado!")
+            print_log(" - Procurando Recaptcha checkbox...")
+    print_log(" - Recaptcha checkbox não foi encontrado...")
     return frames
 async def check_green_mark(frames):
     for frame in frames:
         await frame.wait_for_load_state() 
         if frame.url.find('api2/anchor') != -1:
-            print_log(" - Recaptcha checkbox encontrado!")
             await frame.wait_for_timeout(500)    
             if await frame.is_visible(".recaptcha-checkbox-checked"):
                 return True
         else:
-            print_log(" - Recaptcha checkbox não encontrado!")
+            print_log(" - Verificando se checkbox já foi solucionado ...")    
+    print_log(" - Recaptcha checkbox não foi solucionado!")
     return False
 
 # If ReCaptcha asks to solve an image quiz, the audio button gonna be clicked
@@ -90,21 +92,24 @@ async def recaptcha_audio_button(frame):
     except Exception as error:
         print_error("Botão de audio não encontrado!",'\033[31m',error)
 
-count = 0
+count = 0  
+timeout = 500 
 async def challenge_solver(frame):
-    global count   
+    global count, timeout
     try:           
         print_log(" - Frame de audio encontrado!")
         # Note: Find a better selector to wait for    
         href = await frame.get_attribute(".rc-audiochallenge-tdownload-link", "href",timeout=4000)
         print_log(" - Audio link encontrado!")
         # Download the audio from a request 
-        audio_file = requests.get(href)            
+        audio_file = requests.get(href) 
+        await frame.wait_for_timeout(timeout)           
         with open('audio.mp3', 'wb') as f:
             f.write(audio_file.content) 
         print_log(" - Audio baixado!") 
         print_log(" - Resolvendo desafio de audio...")
         text = string_parser(audio_recognize())
+        await frame.wait_for_timeout(timeout)
         if text == "":
             print_log(" - Texto vazio, tentando novamente!")
             await frame.click("#recaptcha-reload-button",timeout=4000)
@@ -114,18 +119,19 @@ async def challenge_solver(frame):
         await frame.fill("#audio-response", text, timeout=4000)  
         await frame.click('#recaptcha-verify-button',delay=500)
         print_log(" - Aguardando verificação...")
-        await frame.wait_for_timeout(500)
+        await frame.wait_for_timeout(timeout)
         if await frame.is_visible(".rc-audiochallenge-error-message"):
             print_log(" - Recaptcha solicitando multiplas soluções de áudio!")
             count +=1
             if count >= 5:
                 print_log(" - Recaptcha está demorando muito, tentando novamente!")
+                timeout = 800
             print_log(" - Recarregando desafio de audio...")
+            await frame.wait_for_timeout(timeout)
             await frame.click("#recaptcha-reload-button")
             await challenge_solver(frame)  
     except Exception as error:
-        print_error("Frame de audio retornou um erro!",'\033[31m',error)
-
+        raise Exception(error)
 
 def audio_recognize():
     
