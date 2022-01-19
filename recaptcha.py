@@ -34,8 +34,7 @@ async def solve(page):
                             await challenge_solver(frame) 
                             await page.wait_for_timeout(500)                
                             if await frame.is_visible(".rc-doscaptcha-header-text"):
-                                if await frame.inner_text(".rc-doscaptcha-header-text") == "Try again later":
-                                    raise Exception("Recaptcha bloqueou testes por audio. Tente mais tarde!")
+                                raise Exception("Recaptcha bloqueou testes por audio. Tente mais tarde!")
                             elif await frame.is_disabled('#recaptcha-verify-button'):
                                 print_log(" - Botão de verificação do recaptcha foi desabilitado!")
                                 print_message("Recaptcha solucionado!",'\033[92m')
@@ -131,7 +130,7 @@ async def challenge_solver(frame):
             await frame.click("#recaptcha-reload-button")
             await challenge_solver(frame)  
     except Exception as error:
-        raise Exception(error)
+        print_error("Frame de audio retornou um erro!",'\033[31m',error)
 
 def audio_recognize():
     
@@ -169,7 +168,7 @@ def string_parser(data):
                 final_return = str_final.replace(',',"")
         return final_return
     except Exception as error:
-        print_error("Erro ao parserar string!",'\033[31m',error)
+        print_error("Erro ao ler string!",'\033[31m',error)
 
 def delete_audio(AUDIO_PATH):
     if os.path.exists(AUDIO_PATH):
